@@ -89,8 +89,8 @@ async function handleApiRequest(url) {
                 throw new Error('无效的API来源');
             }
 
-            // 对于特殊源，使用特殊处理方式
-            if ((sourceCode === 'ffzy' || sourceCode === 'jisu' || sourceCode === 'huangcang') && API_SITES[sourceCode].detail) {
+            // 对于有detail参数的源，都使用特殊处理方式
+            if (sourceCode !== 'custom' && API_SITES[sourceCode].detail) {
                 return await handleSpecialSourceDetail(id, sourceCode);
             }
             
@@ -256,18 +256,6 @@ async function handleCustomApiSpecialDetail(id, customApi) {
     }
 }
 
-// 处理极速资源详情的特殊函数
-async function handleJisuDetail(id, sourceCode) {
-    // 直接复用通用的特殊源处理函数，传入相应参数
-    return await handleSpecialSourceDetail(id, sourceCode);
-}
-
-// 处理非凡影视详情的特殊函数
-async function handleFFZYDetail(id, sourceCode) {
-    // 直接复用通用的特殊源处理函数，传入相应参数
-    return await handleSpecialSourceDetail(id, sourceCode);
-}
-
 // 通用特殊源详情处理函数
 async function handleSpecialSourceDetail(id, sourceCode) {
     try {
@@ -309,7 +297,8 @@ async function handleSpecialSourceDetail(id, sourceCode) {
             const generalPattern = /\$(https?:\/\/[^"'\s]+?\.m3u8)/g;
             matches = html.match(generalPattern) || [];
         }
-        
+        // 去重处理，避免一个播放源多集显示
+        matches = [...new Set(matches)];
         // 处理链接
         matches = matches.map(link => {
             link = link.substring(1, link.length);
@@ -557,6 +546,11 @@ async function handleMultipleCustomSearch(searchQuery, customApiUrls) {
         const requestUrl = typeof input === 'string' ? new URL(input, window.location.origin) : input.url;
         
         if (requestUrl.pathname.startsWith('/api/')) {
+            if (window.isPasswordProtected && window.isPasswordVerified) {
+                if (window.isPasswordProtected() && !window.isPasswordVerified()) {
+                    return;
+                }
+            }
             try {
                 const data = await handleApiRequest(requestUrl);
                 return new Response(data, {
